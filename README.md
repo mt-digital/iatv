@@ -89,4 +89,6 @@ download_all_transcripts(shows, base_directory='July2016')
 ```
 
 Note that if the directory for an identifier already exists, it will be
-skipped to avoid re-downloading existing data.
+skipped to avoid re-downloading existing data. This will report on every URL it
+downloads from. To turn off this reporting, add the kwarg `verbose=False` to 
+the `download_all_transcripts` call.
