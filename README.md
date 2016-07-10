@@ -33,3 +33,60 @@ build a reasonable transcript like so
 fulltext = u'\n\n'.join(trans).encode('utf-8')
 open(show.identifier + '.txt', 'w').write(fulltext)
 ```
+
+
+## More examples/recipes
+
+### download all transcripts from Fox News for a series of days
+
+Note that if you are downloading the same transcripts often, for example for
+iteratively developing a processing pipeline, the best practice is to
+cache the results somehow. Here we'll show how to save them to file.
+
+This is not necessarily the best or most responsible way to do this.
+
+```python
+import os
+from iatv import search_items, Show
+
+days = ['01', '02', '03']
+times = ['201607' + el for el in days]
+
+items = [item
+         for time in times
+         for item in
+            search_items('I', channel='FOXNEWSW', time=time, rows=1000)]
+
+shows = [item in items if 'commercial' not in item]
+
+for show_spec in shows:
+    iden = show_spec['identifier']
+    show = Show(iden)
+    os.mkdir(iden)
+
+    ts = show.get_transcript()
+    ts_file_path = os.path.join(iden, 'transcript.txt')
+    open(ts_file_path, 'w').write('\n\n'.join(ts).encode('utf-8'))
+
+    md = show.metadata
+    md_file_path = os.path.join(iden, 'metadata.json')
+    open(md_file_path, 'w').write(json.dumps(md).encode('utf-8'))
+```
+
+
+This is wrapped up in a function called `download_all_transcripts` that takes
+a list of show specifications (search results from `search_items`) and
+downloads all their transcripts and metadata to directories of the form
+`<base_directory>/<show_identifier>/{transcript.txt,metadata.json}`.
+
+For example, to download all transcripts from July 2016, run
+
+```python
+items = search_items('I', channel='FOXNEWSW', time='201607', rows=100000)
+shows = [item in items if 'commercial' not in item]
+
+download_all_transcripts(shows, base_directory='July2016')
+```
+
+Note that if the directory for an identifier already exists, it will be
+skipped to avoid re-downloading existing data.

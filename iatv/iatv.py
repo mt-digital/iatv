@@ -1,11 +1,14 @@
 '''
 iatv.py: Tools for dealing with TV News from the Internet Archive, archive.org
 '''
-
+import json
+import os
+import re
 import requests
 import warnings
 
 from collections import namedtuple
+from dateutil.parser import parse
 
 from pycaption import CaptionConverter, SRTReader
 from pycaption.transcript import TranscriptWriter
@@ -14,7 +17,7 @@ IATV_BASE_URL = 'https://archive.org/details/tv'
 DOWNLOAD_BASE_URL = 'https://archive.org/download/'
 
 
-def _srt_gen_from_url(base_url, end_time=3660):
+def _srt_gen_from_url(base_url, end_time=3660, verbose=True):
     dt = 60
     t0 = 0
     t1 = t0 + dt
@@ -26,7 +29,8 @@ def _srt_gen_from_url(base_url, end_time=3660):
     while has_next:
         url = base_url + '{}/{}'.format(t0, t1)
 
-        print('fetching captions from ' + url)
+        if verbose:
+            print('fetching captions from ' + url)
 
         if first:
             first = False
@@ -42,18 +46,14 @@ def _srt_gen_from_url(base_url, end_time=3660):
 
             srt = res.text
 
-        if srt:
-            t0 = t1 + 1
-            t1 = t1 + dt
-            has_next = t1 < end_time
+        t0 = t1 + 1
+        t1 = t1 + dt
+        has_next = t1 <= end_time
 
+        if srt:
             yield srt.replace('\n\n', ' \n\n')
 
         else:
-            t0 = t1 + 1
-            t1 = t1 + dt
-            has_next = t1 < end_time
-
             yield ''
 
 
@@ -190,7 +190,7 @@ class Show:
             DOWNLOAD_BASE_URL + self.identifier + '/' +\
             self.identifier + '.cc5.srt?t='
 
-    def get_transcript(self, start_time=0, end_time=3660):
+    def get_transcript(self, start_time=0, end_time=None, verbose=True):
         '''
         Fetch the transcript for the specified times
         '''
@@ -201,11 +201,23 @@ class Show:
 
         if not self.transcript or updated_times:
 
+            if not end_time:
+                try:
+                    h, m, s = self.metadata['runtime'].pop().split(':')
+                    end_time = (3600 * int(h)) + (60 * int(m)) + int(s)
+                except IndexError:
+                    try:
+                        end_time = timedelta_from_title(self.title)
+                    except:
+                        end_time = 3600
+
             try:
                 # XXX not the best, but ok for now. FIXME
                 self.transcript = _make_ts_from_clips(
                     _srt_gen_from_url(
-                        self.transcript_download_url, end_time=end_time
+                        self.transcript_download_url,
+                        end_time=end_time,
+                        verbose=verbose
                     )
                 )
 
@@ -224,6 +236,65 @@ class Show:
     def __str__(self):
         return '{{\n Title: {}\n Identifier: {}\n}}'.format(
             self.title, self.identifier)
+
+
+def download_all_transcripts(show_specs, base_directory=None, verbose=True):
+    '''
+    Download all transcripts for shows corresponding to their
+    specification in each element of show_specs. Each show_spec should
+    be a dictionary in the list returned from ``search_items``.
+
+    Example:
+
+    >>> items = search_items('I', channel='FOXNEWSW', time='201607', rows=100000)
+    >>> shows = [item in items if 'commercial' not in item]
+    >>> download_all_transcripts(shows, base_directory='July2016')
+
+
+    Arguments:
+        show_specs (list(dict)): list of specifications returned by
+            search_items function
+        base_directory (str): directory where downloads should be put
+    '''
+
+    if not base_directory:
+        base_directory = 'default-downloads'
+
+    if not os.path.isdir(base_directory):
+        os.makedirs(base_directory)
+
+    for spec in show_specs:
+
+        iden = spec['identifier']
+        show = Show(iden)
+        write_dir = os.path.join(base_directory, iden)
+
+        if not os.path.isdir(write_dir):
+            os.mkdir(write_dir)
+
+            ts = show.get_transcript(verbose=verbose)
+            ts_file_path = os.path.join(write_dir, 'transcript.txt')
+            open(ts_file_path, 'w').write('\n\n'.join(ts).encode('utf-8'))
+
+            md = show.metadata
+            md.update(spec)
+            md_file_path = os.path.join(write_dir, 'metadata.json')
+            open(md_file_path, 'w').write(json.dumps(md).encode('utf-8'))
+
+
+TIMES_PATT = re.compile(
+    r'[1]{0,1}[0-9]:[0-9]{2}[a,p]m-[1]{0,1}[0-9]:[0-9]{2}[a,p]m'
+)
+
+
+def timedelta_from_title(title):
+
+    st, et = (
+        parse(time_str)
+        for time_str in TIMES_PATT.findall(title).pop().split('-')
+    )
+
+    return (et - st).seconds
 
 
 def get_show_metadata(identifier):
