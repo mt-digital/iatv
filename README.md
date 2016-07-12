@@ -2,12 +2,12 @@
 
 Access archive.org's TV News Archive with Python. For example, to get
 the first 100 search results that contain 'climate' or 'change' from
-the month of June 2016 on the Fox News Network,
+the month of July 2016 on the Fox News Network,
 
 ```python
 from iatv import Show, search_items
 
-items = search_items('climate change', channel='FOXNEWSW', time='201606', rows=100)
+items = search_items('climate change', channel='FOXNEWSW', time='201607', rows=100)
 # filter out commercials
 shows = [item for item in items if 'commercial' not in item]
 ```
@@ -90,5 +90,19 @@ download_all_transcripts(shows, base_directory='July2016')
 
 Note that if the directory for an identifier already exists, it will be
 skipped to avoid re-downloading existing data. This will report on every URL it
-downloads from. To turn off this reporting, add the kwarg `verbose=False` to 
+downloads from. To turn off this reporting, add the kwarg `verbose=False` to
 the `download_all_transcripts` call.
+
+### Summarize all transcripts downloaded above
+
+Now let's make summaries of all of these downloaded files and save these
+summaries to the same identifier-specific directories. So using the same
+variables as above,
+
+```python
+base_directory = 'July2016'
+n_sentences = 12
+
+# run this then open July2016/FOXNEWSW_20160701_000000_The_OReilly_Factor/summary.txt
+summarize_standard_dir(base_directory, n_sentences)
+```

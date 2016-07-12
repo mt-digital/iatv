@@ -1,6 +1,7 @@
 '''
 iatv.py: Tools for dealing with TV News from the Internet Archive, archive.org
 '''
+import glob
 import json
 import os
 import re
@@ -13,9 +14,71 @@ from dateutil.parser import parse
 from pycaption import CaptionConverter, SRTReader
 from pycaption.transcript import TranscriptWriter
 
+from sumy.parsers.plaintext import PlaintextParser
+from sumy.nlp.tokenizers import Tokenizer
+from sumy.summarizers.lsa import LsaSummarizer as Summarizer
+from sumy.nlp.stemmers import Stemmer
+from sumy.utils import get_stop_words
+
 IATV_BASE_URL = 'https://archive.org/details/tv'
 DOWNLOAD_BASE_URL = 'https://archive.org/download/'
 
+LANGUAGE = 'english'
+
+SENTENCES_COUNT = 10
+
+
+def summarize_standard_dir(directory, n_sentences):
+    '''
+    If it doesn't already exist, create summary.txt in the unique identifier
+    data directory, i.e. {directory}/{identifier}/summary.txt to go alongside
+    {directory}/{identifier}/transcript.txt and
+    {directory}/{identifier}/metadata.json.
+    '''
+    for d in glob.glob(os.path.join(directory, '*')):
+
+        if os.path.isdir(d):
+            summary_path = os.path.join(d, 'summary.txt')
+        else:
+            raise RuntimeError(
+                'There should only be directories in ' + directory
+            )
+
+        if not os.path.exists(summary_path):
+
+            transcript_path = os.path.join(d, 'transcript.txt')
+            text = open(transcript_path).read()
+            open(summary_path, 'w').write(
+                summarize(text, n_sentences)
+            )
+
+
+def summarize(text, n_sentences, sep='\n'):
+    '''
+    Args:
+        text (str or file): text itself or file in memory of text
+        n_sentences (int): number of sentences to include in summary
+
+    Kwargs:
+        sep (str): separator to join summary sentences
+
+    Returns:
+        (str) n_sentences-long, automatically-produced summary of text
+    '''
+
+    if isinstance(text, str):
+        parser = PlaintextParser.from_string(text, Tokenizer(LANGUAGE))
+    elif isinstance(text, file):
+        parser = PlaintextParser.from_file(text, Tokenizer(LANGUAGE))
+    else:
+        raise TypeError('text must be either str or file')
+
+    stemmer = Stemmer(LANGUAGE)
+
+    summarizer = Summarizer(stemmer)
+    summarizer.stop_words = get_stop_words(LANGUAGE)
+
+    return '\n'.join(str(s) for s in summarizer(parser.document, n_sentences))
 
 
 def search_items(query, channel=None, time=None, rows=None, start=None):

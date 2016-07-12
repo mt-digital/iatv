@@ -4,3 +4,4 @@ nltk==3.2.1
 pycaption==0.5.6
 requests==2.10.0
 sumy==0.4.1
+numpy==1.11.1
