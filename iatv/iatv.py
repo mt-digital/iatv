@@ -17,96 +17,6 @@ IATV_BASE_URL = 'https://archive.org/details/tv'
 DOWNLOAD_BASE_URL = 'https://archive.org/download/'
 
 
-def _srt_gen_from_url(base_url, end_time=3660, verbose=True):
-    dt = 60
-    t0 = 0
-    t1 = t0 + dt
-
-    has_next = True
-    first = True
-    srt = ''
-
-    while has_next:
-        url = base_url + '{}/{}'.format(t0, t1)
-
-        if verbose:
-            print('fetching captions from ' + url)
-
-        if first:
-            first = False
-
-            res = requests.get(url)
-            res.raise_for_status()
-
-            srt = res.text.replace(u'\ufeff', '')
-
-        else:
-            res = requests.get(url)
-            res.raise_for_status()
-
-            srt = res.text
-
-        t0 = t1 + 1
-        t1 = t1 + dt
-        has_next = t1 <= end_time
-
-        if srt:
-            yield srt.replace('\n\n', ' \n\n')
-
-        else:
-            yield ''
-
-
-def _make_ts_from_clips(clips_generator):
-
-    c = CaptionConverter()
-    c.read('\n'.join((el for el in clips_generator if el)), SRTReader())
-
-    ts = c.write(TranscriptWriter()).replace(u'>>> ', u'>>')
-
-    # import ipdb; ipdb.set_trace()
-    return [el.strip()
-            for el in ts.replace('\n', ' ').split('>>')
-            if el.strip()]
-
-
-DL_BASE_URL = 'https://archive.org/download/'
-
-
-def _build_dl_url(datestr, network_name='', show_id_name='', utc_time=''):
-
-    aired_show_id =\
-        network_name + '_' + datestr + '_' + utc_time + '_' + show_id_name
-
-    url = DL_BASE_URL + aired_show_id + '/' + aired_show_id + '.cc5.srt?t='
-
-    return url
-
-
-SHOW_URL_LOOKUP = {
-    'oreilly': {
-        'show_id_name': 'The_OReilly_Factor',
-        'utc_time': '010000',
-        'network_name': 'FOXNEWS'
-    },
-    'redeye': {
-        'show_id_name': 'Red_Eye',
-        'utc_time': '070000',
-        'network_name': 'FOXNEWSW'
-    },
-    'kelly': {
-        'show_id_name': 'The_Kelly_File',
-        'utc_time': '020000',
-        'network_name': 'FOXNEWSW'
-    }
-}
-
-# currently explicit at the bottom of file. undecided which to use
-
-# STATION_MAPPINGS = requests.get(
-    # 'IATV_BASE_URL?mappings&output=json'
-# ).json()[0]
-
 
 def search_items(query, channel=None, time=None, rows=None, start=None):
     '''
@@ -161,6 +71,18 @@ Runtime = namedtuple('Runtime', ['h', 'm', 's'])
 class Show:
     '''
     Access an individual Show using the archive.org backend.
+
+    Example:
+
+    >>> from iatv import search_items, Show
+    >>> shows = [item for item
+                 in search_items('climate change', channel='FOXNEWSW',
+                                 time='201607', rows=1000)
+                 if 'commercial' not in item
+                ]
+    >>> s = Show(shows.pop()['identifier'])
+    >>> tr = s.get_transcript(verbose=False)  # download captions to this object in memory
+    >>> open('transcript-out.txt', 'w').write('\n\n'.join(tr).encode('utf-8'))
     '''
     def __init__(self, identifier):
 
@@ -304,6 +226,73 @@ def get_show_metadata(identifier):
     r = requests.get(url)
 
     return r.json()['metadata']
+
+
+def _srt_gen_from_url(base_url, end_time=3660, verbose=True):
+    dt = 60
+    t0 = 0
+    t1 = t0 + dt
+
+    has_next = True
+    first = True
+    srt = ''
+
+    while has_next:
+        url = base_url + '{}/{}'.format(t0, t1)
+
+        if verbose:
+            print('fetching captions from ' + url)
+
+        if first:
+            first = False
+
+            res = requests.get(url)
+            res.raise_for_status()
+
+            srt = res.text.replace(u'\ufeff', '')
+
+        else:
+            res = requests.get(url)
+            res.raise_for_status()
+
+            srt = res.text
+
+        t0 = t1 + 1
+        t1 = t1 + dt
+        has_next = t1 <= end_time
+
+        if srt:
+            yield srt.replace('\n\n', ' \n\n')
+
+        else:
+            yield ''
+
+
+def _make_ts_from_clips(clips_generator):
+
+    c = CaptionConverter()
+    c.read('\n'.join((el for el in clips_generator if el)), SRTReader())
+
+    ts = c.write(TranscriptWriter()).replace(u'>>> ', u'>>')
+
+    # import ipdb; ipdb.set_trace()
+    return [el.strip()
+            for el in ts.replace('\n', ' ').split('>>')
+            if el.strip()]
+
+
+DL_BASE_URL = 'https://archive.org/download/'
+
+
+def _build_dl_url(datestr, network_name='', show_id_name='', utc_time=''):
+
+    aired_show_id =\
+        network_name + '_' + datestr + '_' + utc_time + '_' + show_id_name
+
+    url = DL_BASE_URL + aired_show_id + '/' + aired_show_id + '.cc5.srt?t='
+
+    return url
+
 
 
 STATION_MAPPINGS = {
