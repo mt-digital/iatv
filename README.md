@@ -34,6 +34,25 @@ fulltext = u'\n\n'.join(trans).encode('utf-8')
 open(show.identifier + '.txt', 'w').write(fulltext)
 ```
 
+### Dependencies
+
+This tool is based on a few basic dependencies:
+
+1. [Public Broadcasting System's
+pycaption](http://pycaption.readthedocs.io/en/stable/)
+2. [miso-belica/sumy on GitHub](https://github.com/miso-belica/sumy)
+
+`pycaption` provides methods for parsing
+[SubRip
+text (SRT)-formatted](https://en.wikipedia.org/wiki/SubRip#SubRip_text_file_format)
+captions, which are provided by [archive.org](http://archive.org) in SRT
+format.
+
+`sumy` is an auto-summarization library with many available options for
+summarization method. It's interesting to study both as software and
+as a list of recommendations of computational linguistic algorithms to know
+about. I'm using it quite ignorantly for now, just using Latent Semantic
+Analysis to somehow generate summaries.
 
 ## More examples/recipes
 
@@ -106,3 +125,9 @@ n_sentences = 12
 # run this then open July2016/FOXNEWSW_20160701_000000_The_OReilly_Factor/summary.txt
 summarize_standard_dir(base_directory, n_sentences)
 ```
+
+
+## Roadmap
+
+`iatv` will serve as a building block in a larger system of tv data management
+for scientific use.
