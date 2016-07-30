@@ -49,10 +49,14 @@ def summarize_standard_dir(directory, n_sentences):
             try:
                 transcript_path = os.path.join(d, 'transcript.txt')
                 text = open(transcript_path).read()
-                open(summary_path, 'w').write(
+                open(summary_path, 'w+').write(
                     summarize(text, n_sentences)
                 )
-            except:
+
+            except Exception as e:
+
+                print('Error writing to ' + summary_path)
+                print(e.message)
                 pass
 
 
