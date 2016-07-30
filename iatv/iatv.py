@@ -46,11 +46,14 @@ def summarize_standard_dir(directory, n_sentences):
 
         if not os.path.exists(summary_path):
 
-            transcript_path = os.path.join(d, 'transcript.txt')
-            text = open(transcript_path).read()
-            open(summary_path, 'w').write(
-                summarize(text, n_sentences)
-            )
+            try:
+                transcript_path = os.path.join(d, 'transcript.txt')
+                text = open(transcript_path).read()
+                open(summary_path, 'w').write(
+                    summarize(text, n_sentences)
+                )
+            except:
+                pass
 
 
 def summarize(text, n_sentences, sep='\n'):
@@ -206,11 +209,11 @@ class Show:
                     )
                 )
 
-            except requests.HTTPError as e:
-                warnings.warn('The URL ' + self.transcript_download_url +
-                              ' could not be found')
-
-                raise e
+            except:
+                warnings.warn(
+                    'Failed to recover transcript from URL ' +
+                    self.transcript_download_url
+                )
 
         return self.transcript
 
