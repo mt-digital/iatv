@@ -16,7 +16,7 @@ Then let's download the whole transcript of the first record in
 `shows`. We won't just get the raw captions.
 
 ```python
-show = Show(shows[0].identifier)
+show = Show(shows[0]['identifier'])
 trans = show.get_transcript()
 ```
 
