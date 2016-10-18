@@ -6,6 +6,7 @@ import json
 import os
 import re
 import requests
+import unicodedata
 import warnings
 
 from collections import namedtuple
@@ -128,11 +129,22 @@ def search_items(query, channel=None, time=None, rows=None, start=None):
 
     url = url + '&output=json'
 
+    res = requests.get(url)
     try:
-        return requests.get(url).json()
+        return res.json()
     except Exception as e:
-        print(url)
-        raise e
+        try:
+
+            # a hack for msnbc october 2016 data
+            data = requests.get(url).text.replace(',\n,', ',\n')
+            return json.loads(data)
+
+        except Exception as e2:
+            # data = requests.get(url).data
+            import ipdb; ipdb.set_trace()
+            print(url)
+            print(e.message)
+            raise e2
 
 
 Runtime = namedtuple('Runtime', ['h', 'm', 's'])
@@ -174,6 +186,8 @@ class Show:
             self.title = None
             self.identifier = identifier
 
+        self.srt = ''
+        self.srt_fname = ''
         self.transcript = ''
         self.last_start_time = None
         self.last_end_time = None
@@ -204,8 +218,7 @@ class Show:
                         end_time = 3600
 
             try:
-                # XXX not the best, but ok for now. FIXME
-                self.transcript = _make_ts_from_clips(
+                self.srt = '\n\n'.join(
                     _srt_gen_from_url(
                         self.transcript_download_url,
                         end_time=end_time,
@@ -213,10 +226,17 @@ class Show:
                     )
                 )
 
-            except:
+                self.srt_fname = self.transcript_download_url.replace(
+                    'https://archive.org/download/', ''
+                ).split('?t=')[0].split('/')[-1]
+
+                # XXX not the best, but ok for now. FIXME
+                self.transcript = _make_ts_from_srt(self.srt)
+
+            except Exception as e:
                 warnings.warn(
                     'Failed to recover transcript from URL ' +
-                    self.transcript_download_url
+                    self.transcript_download_url + '\n\n' + e.message
                 )
 
         return self.transcript
@@ -261,7 +281,11 @@ def download_all_transcripts(show_specs, base_directory=None, verbose=True):
         show = Show(iden)
         write_dir = os.path.join(base_directory, iden)
 
-        if not os.path.isdir(write_dir):
+        if not os.path.exists(os.path.join(write_dir, 'transcript.txt')):
+
+            if os.path.isdir(write_dir):
+                os.removedirs(write_dir)
+
             os.mkdir(write_dir)
 
             ts = show.get_transcript(verbose=verbose)
@@ -272,6 +296,9 @@ def download_all_transcripts(show_specs, base_directory=None, verbose=True):
             md.update(spec)
             md_file_path = os.path.join(write_dir, 'metadata.json')
             open(md_file_path, 'w').write(json.dumps(md).encode('utf-8'))
+
+            srt_file_path = os.path.join(write_dir, show.srt_fname)
+            open(srt_file_path, 'w').write(show.srt.encode('utf-8'))
 
 
 TIMES_PATT = re.compile(
@@ -299,6 +326,7 @@ def get_show_metadata(identifier):
 
 
 def _srt_gen_from_url(base_url, end_time=3660, verbose=True):
+
     dt = 60
     t0 = 0
     t1 = t0 + dt
@@ -338,17 +366,22 @@ def _srt_gen_from_url(base_url, end_time=3660, verbose=True):
             yield ''
 
 
-def _make_ts_from_clips(clips_generator):
+def _make_ts_from_srt(srt):
 
     c = CaptionConverter()
-    c.read('\n'.join((el for el in clips_generator if el)), SRTReader())
 
-    ts = c.write(TranscriptWriter()).replace(u'>>> ', u'>>')
+    srt = re.sub('$', ' ', srt).replace('\n\n', ' \n\n')
 
-    # import ipdb; ipdb.set_trace()
-    return [el.strip()
-            for el in ts.replace('\n', ' ').split('>>')
-            if el.strip()]
+    srt = unicodedata.normalize('NFC', srt)
+
+    srt = ''.join(i for i in srt
+                  if unicodedata.category(i)[0] != 'C' or i == '\n')
+
+    c.read(srt, SRTReader())
+
+    ts = c.write(TranscriptWriter()).replace(u'>>> ', u'>>').replace('\n', ' ')
+
+    return ts.split('>>')
 
 
 DL_BASE_URL = 'https://archive.org/download/'
@@ -364,94 +397,93 @@ def _build_dl_url(datestr, network_name='', show_id_name='', utc_time=''):
     return url
 
 
-
 STATION_MAPPINGS = {
-    'ALJAZAM': "Al Jazeera America",
-    'BLOOMBERG': "Bloomberg",
-    'CNBC': "CNBC",
-    'CNN': "CNN",
-    'CNNW': "CNN",
-    'COM': "Comedy Central",
-    'CSPAN': "CSPAN",
-    'CSPAN2': "CSPAN",
-    'CSPAN3': "CSPAN",
-    'CURRENT': "Current",
-    'FBC': "FOX Business",
-    'FOXNEWS': "FOX News",
-    'FOXNEWSW': "FOX News",
-    'KBCW': "CW",
-    'KCAU': "ABC",
-    'KCCI': "Me-TV",
-    'KCRG': "ABC",
-    'KCSM': "PBS",
-    'KDTV': "Univision",
-    'KGAN': "CBS",
-    'KGO': "ABC",
-    'KLAS': "CBS",
-    'KMEG': "CBS",
-    'KNTV': "NBC",
-    'KOLO': "ABC",
-    'KPIX': "CBS",
-    'KQED': "PBS",
-    'KQEH': "PBS",
-    'KRCB': "PBS",
-    'KSNV': "NBC",
-    'KSTS': "Telemundo",
-    'KTIV': "NBC",
-    'KTNV': "ABC",
-    'KTVN': "CBS",
-    'KTVU': "FOX",
-    'KUSA': "NBC",
-    'KVVU': "FOX",
-    'KWWL': "NBC",
-    'KYW': "CBS",
-    'LINKTV': "LINKTV",
-    'MSNBC': "MSNBC",
-    'MSNBCW': "MSNBC",
-    'WABC': "ABC",
-    'WBAL': "NBC",
-    'WBFF': "FOX",
-    'WBZ': "CBS",
-    'WCAU': "NBC",
-    'WCBS': "CBS",
-    'WCPO': "ABC",
-    'WCVB': "ABC",
-    'WESH': "NBC",
-    'WEWS': "ABC",
-    'WFDC': "Univision",
-    'WFLA': "NBC",
-    'WFTS': "ABC",
-    'WFTV': "ABC",
-    'WFXT': "FOX",
-    'WGN': "CW",
-    'WHDH': "NBC",
-    'WHO': "NBC",
-    'WIS': "NBC",
-    'WJLA': "ABC",
-    'WJW': "FOX",
-    'WJZ': "CBS",
-    'WKMG': "CBS",
-    'WKRC': "CBS",
-    'WKYC': "NBC",
-    'WLTX': "CBS",
-    'WLWT': "NBC",
-    'WMAR': "ABC",
-    'WMPT': "PBS",
-    'WMUR': "ABC",
-    'WNBC': "NBC",
-    'WNYW': "FOX",
-    'WOI': "ABC",
-    'WOIO': "CBS",
-    'WPLG': "ABC",
-    'WPVI': "ABC",
-    'WRAL': "CBS",
-    'WRC': "NBC",
-    'WSPA': "CBS",
-    'WTTG': "FOX",
-    'WTVD': "ABC",
-    'WTVT': "FOX",
-    'WTXF': "FOX",
-    'WUSA': "CBS",
-    'WUVP': "Univision",
-    'WYFF': "NBC"
+    'ALJAZAM': 'Al Jazeera America',
+    'BLOOMBERG': 'Bloomberg',
+    'CNBC': 'CNBC',
+    'CNN': 'CNN',
+    'CNNW': 'CNN',
+    'COM': 'Comedy Central',
+    'CSPAN': 'CSPAN',
+    'CSPAN2': 'CSPAN',
+    'CSPAN3': 'CSPAN',
+    'CURRENT': 'Current',
+    'FBC': 'FOX Business',
+    'FOXNEWS': 'FOX News',
+    'FOXNEWSW': 'FOX News',
+    'KBCW': 'CW',
+    'KCAU': 'ABC',
+    'KCCI': 'Me-TV',
+    'KCRG': 'ABC',
+    'KCSM': 'PBS',
+    'KDTV': 'Univision',
+    'KGAN': 'CBS',
+    'KGO': 'ABC',
+    'KLAS': 'CBS',
+    'KMEG': 'CBS',
+    'KNTV': 'NBC',
+    'KOLO': 'ABC',
+    'KPIX': 'CBS',
+    'KQED': 'PBS',
+    'KQEH': 'PBS',
+    'KRCB': 'PBS',
+    'KSNV': 'NBC',
+    'KSTS': 'Telemundo',
+    'KTIV': 'NBC',
+    'KTNV': 'ABC',
+    'KTVN': 'CBS',
+    'KTVU': 'FOX',
+    'KUSA': 'NBC',
+    'KVVU': 'FOX',
+    'KWWL': 'NBC',
+    'KYW': 'CBS',
+    'LINKTV': 'LINKTV',
+    'MSNBC': 'MSNBC',
+    'MSNBCW': 'MSNBC',
+    'WABC': 'ABC',
+    'WBAL': 'NBC',
+    'WBFF': 'FOX',
+    'WBZ': 'CBS',
+    'WCAU': 'NBC',
+    'WCBS': 'CBS',
+    'WCPO': 'ABC',
+    'WCVB': 'ABC',
+    'WESH': 'NBC',
+    'WEWS': 'ABC',
+    'WFDC': 'Univision',
+    'WFLA': 'NBC',
+    'WFTS': 'ABC',
+    'WFTV': 'ABC',
+    'WFXT': 'FOX',
+    'WGN': 'CW',
+    'WHDH': 'NBC',
+    'WHO': 'NBC',
+    'WIS': 'NBC',
+    'WJLA': 'ABC',
+    'WJW': 'FOX',
+    'WJZ': 'CBS',
+    'WKMG': 'CBS',
+    'WKRC': 'CBS',
+    'WKYC': 'NBC',
+    'WLTX': 'CBS',
+    'WLWT': 'NBC',
+    'WMAR': 'ABC',
+    'WMPT': 'PBS',
+    'WMUR': 'ABC',
+    'WNBC': 'NBC',
+    'WNYW': 'FOX',
+    'WOI': 'ABC',
+    'WOIO': 'CBS',
+    'WPLG': 'ABC',
+    'WPVI': 'ABC',
+    'WRAL': 'CBS',
+    'WRC': 'NBC',
+    'WSPA': 'CBS',
+    'WTTG': 'FOX',
+    'WTVD': 'ABC',
+    'WTVT': 'FOX',
+    'WTXF': 'FOX',
+    'WUSA': 'CBS',
+    'WUVP': 'Univision',
+    'WYFF': 'NBC'
 }
