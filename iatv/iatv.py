@@ -4,6 +4,7 @@ iatv.py: Tools for dealing with TV News from the Internet Archive, archive.org
 import glob
 import json
 import os
+import progressbar
 import re
 import requests
 import unicodedata
@@ -195,6 +196,27 @@ class Show:
         self.transcript_download_url =\
             DOWNLOAD_BASE_URL + self.identifier + '/' +\
             self.identifier + '.cc5.srt?t='
+
+    def download_video(self, start_time=0, stop_time=60, download_path=None):
+
+        if not download_path:
+            download_path = self.identifier + '_{}_{}.mp4'.format(
+                    start_time, stop_time
+                )
+
+        url = DOWNLOAD_BASE_URL + self.identifier + '/' +\
+            self.identifier + '.mp4?t=' + str(start_time) + '/' +\
+            str(stop_time) + '&exact=1&ignore=x.mp4'
+
+        res = requests.get(url)
+
+        with open(download_path, 'wb') as handle:
+            handle.write(res.content)
+
+        # bar = progressbar.ProgressBar()
+        # with open(download_path, 'wb') as handle:
+        #     for data in bar(res.iter_content()):
+        #         handle.write(data)
 
     def get_transcript(self, start_time=0, end_time=None, verbose=True):
         '''
