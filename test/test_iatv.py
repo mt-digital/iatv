@@ -1,7 +1,6 @@
 import responses
-import requests as r
 
-from iatv.iatv import Show, DOWNLOAD_BASE_URL, IATV_BASE_URL
+from iatv.iatv import Show, DOWNLOAD_BASE_URL
 
 
 @responses.activate
@@ -10,9 +9,6 @@ def test_srt_building():
     SRT should have contiguous, continuous timings; each response from IATV starts at 00:00:00
     '''
     test_show_id = 'Test_Show'
-
-    metadata_url = 'https://archive.org/details/' + \
-        test_show_id + '?output=json'
 
     url1 = DOWNLOAD_BASE_URL + test_show_id + '/' +\
         test_show_id + '.cc5.srt?t=0/60'
@@ -36,10 +32,47 @@ def test_srt_building():
 This is an example SRT file,
 which, while extremely short,
 is still a valid SRT file.
+
+2
+00:00:10,312 --> 00:00:60,101
+This is an example SRT file,
+which, while extremely short,
+is still a valid SRT file.
 '''
 
         srt2 = '''1
+00:00:00,000 --> 00:00:30,312
+This is an example SRT file,
+which, while extremely short,
+is still a valid SRT file.
+
+2
+00:00:30,312 --> 00:00:60,002
+This is an example SRT file,
+which, while extremely short,
+is still a valid SRT file.
+'''
+
+        expected_srt = '''1
 00:00:00,000 --> 00:00:10,312
+This is an example SRT file,
+which, while extremely short,
+is still a valid SRT file.
+
+2
+00:10:00,312 --> 00:00:60,101
+This is an example SRT file,
+which, while extremely short,
+is still a valid SRT file.
+
+3
+00:00:60,101 --> 00:01:30,413
+This is an example SRT file,
+which, while extremely short,
+is still a valid SRT file.
+
+4
+00:01:30,413 --> 00:02:00,102
 This is an example SRT file,
 which, while extremely short,
 is still a valid SRT file.
@@ -55,21 +88,6 @@ is still a valid SRT file.
         s.get_transcript(end_time=120)
 
         assert s.metadata == {'title': [],
-                              'runtime': []}, s.metadata
+                              'runtime': []}
 
-
-@responses.activate
-def test_should_work():
-    with responses.RequestsMock() as rsps:
-        rsps.add(responses.GET, 'http://yo.io', json={'url': 'http://yo.io'}, content_type='application/json', status=200)
-
-        rsps.add(responses.GET, DOWNLOAD_BASE_URL + 'test/test.cc5.srt?t=10/20', body='00:00:00 YO! 01:00:00',
-                 content_type='text/plain',
-                 match_querystring=True)
-
-        res = r.get('http://yo.io')
-
-        res2 = r.get(DOWNLOAD_BASE_URL + 'test/test.cc5.srt', params={'t': '10/20'})
-
-        assert res.json() == {'url': 'http://yo.io'}
-        assert res2.text == '00:00:00 YO! 01:00:00', res2.text
+        assert s.srt == expected_srt, s.srt
