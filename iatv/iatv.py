@@ -195,7 +195,7 @@ class Show:
 
         self.transcript_download_url =\
             DOWNLOAD_BASE_URL + self.identifier + '/' +\
-            self.identifier + '.cc5.srt?t='
+            self.identifier + '.cc5.srt'
 
     def download_video(self, start_time=0, stop_time=60, download_path=None):
 
@@ -340,9 +340,13 @@ def timedelta_from_title(title):
 
 def get_show_metadata(identifier):
 
-    url = 'https://archive.org/details/' + identifier + '?output=json'
+    # url = 'https://archive.org/details/' + identifier + '?output=json'
+    url = 'https://archive.org/details/' + identifier
 
-    r = requests.get(url)
+    # r = requests.get(url, headers={'Content-type': 'application/json'})
+    r = requests.get(url, params={'output': 'json'}, headers={'Content-type': 'application/json'})
+
+    print('yo')
 
     return r.json()['metadata']
 
@@ -358,22 +362,24 @@ def _srt_gen_from_url(base_url, end_time=3660, verbose=True):
     srt = ''
 
     while has_next:
-        url = base_url + '{}/{}'.format(t0, t1)
 
         if verbose:
-            print('fetching captions from ' + url)
+            print('fetching captions from ' +
+                  base_url + '?t={}/{}'.format(t0, t1))
 
         if first:
             first = False
-
-            res = requests.get(url)
+            res = requests.get(base_url, params={'t': '{}/{}'.format(t0, t1)})
             res.raise_for_status()
+            print(res.url)
 
             srt = res.text.replace(u'\ufeff', '')
 
         else:
-            res = requests.get(url)
+            res = requests.get(base_url, params={'t': '{}/{}'.format(t0, t1)})
+
             res.raise_for_status()
+            print(res.url)
 
             srt = res.text
 
