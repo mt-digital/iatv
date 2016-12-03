@@ -1,0 +1,24 @@
+1
+00:00:00,000 --> 00:00:10,312
+This is an example SRT file, 
+which, while extremely short, 
+is still a valid SRT file. 
+
+2
+00:00:10,312 --> 00:01:00,101
+This is an example SRT file, 
+which, while extremely short, 
+is still a valid SRT file.
+
+
+1
+00:01:00,101 --> 00:01:30,413
+This is an example SRT file, 
+which, while extremely short, 
+is still a valid SRT file. 
+
+2
+00:01:30,413 --> 00:02:00,103
+This is an example SRT file, 
+which, while extremely short, 
+is still a valid SRT file.

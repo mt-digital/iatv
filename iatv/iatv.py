@@ -4,7 +4,6 @@ iatv.py: Tools for dealing with TV News from the Internet Archive, archive.org
 import glob
 import json
 import os
-import progressbar
 import re
 import requests
 import unicodedata
@@ -13,7 +12,7 @@ import warnings
 from collections import namedtuple
 from dateutil.parser import parse
 
-from pycaption import CaptionConverter, SRTReader
+from pycaption import CaptionConverter, SRTReader, SRTWriter
 from pycaption.transcript import TranscriptWriter
 
 from sumy.parsers.plaintext import PlaintextParser
@@ -350,6 +349,7 @@ def _srt_gen_from_url(base_url, end_time=3660, verbose=True):
     first = True
     srt = ''
 
+    last_end = 0.0
     while has_next:
 
         if verbose:
@@ -377,6 +377,23 @@ def _srt_gen_from_url(base_url, end_time=3660, verbose=True):
         has_next = t1 <= end_time
 
         if srt:
+
+            cc = CaptionConverter()
+            cc.read(srt, SRTReader())
+            captions = cc.captions.get_captions(lang='en-US')
+
+            if first:
+                last_end = captions[-1].end
+
+            else:
+                for caption in captions:
+                    caption.start += last_end
+                    caption.end += last_end
+
+                last_end = captions[-1].end
+
+            srt = cc.write(SRTWriter())
+
             yield srt.replace('\n\n', ' \n\n')
 
         else:
