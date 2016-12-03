@@ -141,10 +141,7 @@ def search_items(query, channel=None, time=None, rows=None, start=None):
             return json.loads(data)
 
         except Exception as e2:
-            # data = requests.get(url).data
-            import ipdb; ipdb.set_trace()
-            print(url)
-            print(e.message)
+            data = requests.get(url).data
             raise e2
 
 
@@ -212,11 +209,6 @@ class Show:
 
         with open(download_path, 'wb') as handle:
             handle.write(res.content)
-
-        # bar = progressbar.ProgressBar()
-        # with open(download_path, 'wb') as handle:
-        #     for data in bar(res.iter_content()):
-        #         handle.write(data)
 
     def get_transcript(self, start_time=0, end_time=None, verbose=True):
         '''
@@ -340,13 +332,10 @@ def timedelta_from_title(title):
 
 def get_show_metadata(identifier):
 
-    # url = 'https://archive.org/details/' + identifier + '?output=json'
     url = 'https://archive.org/details/' + identifier
 
-    # r = requests.get(url, headers={'Content-type': 'application/json'})
-    r = requests.get(url, params={'output': 'json'}, headers={'Content-type': 'application/json'})
-
-    print('yo')
+    r = requests.get(url, params={'output': 'json'},
+                     headers={'Content-type': 'application/json'})
 
     return r.json()['metadata']
 
