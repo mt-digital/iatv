@@ -9,6 +9,7 @@ import requests
 import unicodedata
 import warnings
 
+from datetime import datetime
 from collections import namedtuple
 from dateutil.parser import parse
 
@@ -89,6 +90,39 @@ def summarize(text, n_sentences, sep='\n'):
     return '\n'.join(str(s) for s in summarizer(parser.document, n_sentences))
 
 
+def search_and_download_shows(query, channels, times,
+                              base_directory=None, rows=1000):
+    '''
+    Searches over all combinations of channels and times
+    and downloading all the shows found. `query` cannot be
+    an empty string, so often I search over 'I', written below
+    to get all results. Seems to work, but hasn't been tested
+    extensively.
+
+    Example:
+        >>> search_and_download_shows('I', ['
+
+    Arguments:
+        query (str): for example, 'climate change'
+        channels (list): list of channels, e.g. ['FOXNEWSW', 'MSNBCW', 'CNNW']
+        times (list): example, ['201609', '201610', '201611']
+        base_dir (str): directory to download to; error if it already exists
+        rows (int): number of results to return per station/date combination
+
+    Returns:
+        None
+    '''
+
+    for channel in channels:
+        for time in times:
+            items = search_items(query, channel=channel, time=time, rows=rows)
+            shows = [item for item in items if 'commercial' not in item]
+
+            print('downloading {} for time range {}'.format(channel, time))
+            download_all_transcripts(shows, base_directory=base_directory,
+                                     verbose=False)
+
+
 def search_items(query, channel=None, time=None, rows=None, start=None):
     '''
     Search items on the archive.org TV News Archive
@@ -142,6 +176,57 @@ def search_items(query, channel=None, time=None, rows=None, start=None):
         except Exception as e2:
             data = requests.get(url).data
             raise e2
+
+
+def download_all_transcripts(show_specs, base_directory=None, verbose=True):
+    '''
+    Download all transcripts for shows corresponding to their
+    specification in each element of show_specs. Each show_spec should
+    be a dictionary in the list returned from ``search_items``.
+
+    Example:
+
+    >>> items = search_items('I', channel='FOXNEWSW', time='201607', rows=1000)
+    >>> shows = [item in items if 'commercial' not in item]
+    >>> download_all_transcripts(shows, base_directory='July2016')
+
+
+    Arguments:
+        show_specs (list(dict)): list of specifications returned by
+            search_items function
+        base_directory (str): directory where downloads should be put
+    '''
+
+    if not base_directory:
+        base_directory = 'default-downloads'
+
+    if not os.path.isdir(base_directory):
+        os.makedirs(base_directory)
+
+    for spec in show_specs:
+
+        iden = spec['identifier']
+        show = Show(iden)
+        write_dir = os.path.join(base_directory, iden)
+
+        if not os.path.exists(os.path.join(write_dir, 'transcript.txt')):
+
+            if os.path.isdir(write_dir):
+                os.removedirs(write_dir)
+
+            os.mkdir(write_dir)
+
+            ts = show.get_transcript(verbose=verbose)
+            ts_file_path = os.path.join(write_dir, 'transcript.txt')
+            open(ts_file_path, 'w').write('\n\n'.join(ts).encode('utf-8'))
+
+            md = show.metadata
+            md.update(spec)
+            md_file_path = os.path.join(write_dir, 'metadata.json')
+            open(md_file_path, 'w').write(json.dumps(md).encode('utf-8'))
+
+            srt_file_path = os.path.join(write_dir, show.srt_fname)
+            open(srt_file_path, 'w').write(show.srt.encode('utf-8'))
 
 
 Runtime = namedtuple('Runtime', ['h', 'm', 's'])
@@ -263,57 +348,6 @@ class Show:
             self.title, self.identifier)
 
 
-def download_all_transcripts(show_specs, base_directory=None, verbose=True):
-    '''
-    Download all transcripts for shows corresponding to their
-    specification in each element of show_specs. Each show_spec should
-    be a dictionary in the list returned from ``search_items``.
-
-    Example:
-
-    >>> items = search_items('I', channel='FOXNEWSW', time='201607', rows=100000)
-    >>> shows = [item in items if 'commercial' not in item]
-    >>> download_all_transcripts(shows, base_directory='July2016')
-
-
-    Arguments:
-        show_specs (list(dict)): list of specifications returned by
-            search_items function
-        base_directory (str): directory where downloads should be put
-    '''
-
-    if not base_directory:
-        base_directory = 'default-downloads'
-
-    if not os.path.isdir(base_directory):
-        os.makedirs(base_directory)
-
-    for spec in show_specs:
-
-        iden = spec['identifier']
-        show = Show(iden)
-        write_dir = os.path.join(base_directory, iden)
-
-        if not os.path.exists(os.path.join(write_dir, 'transcript.txt')):
-
-            if os.path.isdir(write_dir):
-                os.removedirs(write_dir)
-
-            os.mkdir(write_dir)
-
-            ts = show.get_transcript(verbose=verbose)
-            ts_file_path = os.path.join(write_dir, 'transcript.txt')
-            open(ts_file_path, 'w').write('\n\n'.join(ts).encode('utf-8'))
-
-            md = show.metadata
-            md.update(spec)
-            md_file_path = os.path.join(write_dir, 'metadata.json')
-            open(md_file_path, 'w').write(json.dumps(md).encode('utf-8'))
-
-            srt_file_path = os.path.join(write_dir, show.srt_fname)
-            open(srt_file_path, 'w').write(show.srt.encode('utf-8'))
-
-
 TIMES_PATT = re.compile(
     r'[1]{0,1}[0-9]:[0-9]{2}[a,p]m-[1]{0,1}[0-9]:[0-9]{2}[a,p]m'
 )
@@ -360,7 +394,6 @@ def _srt_gen_from_url(base_url, end_time=3660, verbose=True):
             first = False
             res = requests.get(base_url, params={'t': '{}/{}'.format(t0, t1)})
             res.raise_for_status()
-            print(res.url)
 
             srt = res.text.replace(u'\ufeff', '')
 
@@ -368,7 +401,6 @@ def _srt_gen_from_url(base_url, end_time=3660, verbose=True):
             res = requests.get(base_url, params={'t': '{}/{}'.format(t0, t1)})
 
             res.raise_for_status()
-            print(res.url)
 
             srt = res.text
 

@@ -1,6 +1,12 @@
 # iatv
 
-Access archive.org's TV News Archive with Python. For example, to get
+`iatv` provides programmatic access to captions, transcripts, and video clips
+from the [archive.org's TV News Archive](https://archive.org/details/tv) (TVNA
+for short). 
+The TVNA holds well over one million shows from 2012 to today, with even older 
+shows being added. 
+
+For example, to get
 the first 100 search results that contain 'climate' or 'change' from
 the month of July 2016 on the Fox News Network,
 
