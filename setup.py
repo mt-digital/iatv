@@ -44,5 +44,6 @@ setup(
     description='Tools for scraping archive.org\'s TV News Archive',
     author='Matthew Turner',
     author_email='maturner01@gmail.com',
-    install_requires=required_packages
+    install_requires=required_packages,
+    packages=['iatv']
 )
