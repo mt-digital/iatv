@@ -2,3 +2,6 @@
 *__pycache__*
 venv
 .cache
+
+*.json
+iatv.egg-info
