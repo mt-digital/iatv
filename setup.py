@@ -5,7 +5,7 @@ required_packages = [
     'backports.shutil-get-terminal-size==1.0.0',
     'beautifulsoup4==4.4.1',
     'breadability==0.1.20',
-    'chardet==2.3.0',
+    'chardet>=2.3.0',
     'cookies==2.2.1',
     'cssutils==1.0.1',
     'decorator==4.0.10',
